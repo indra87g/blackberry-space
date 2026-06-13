@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react';
 import { Copy, Check, Download, Loader2 } from 'lucide-react';
-import { toPng } from 'html-to-image';
 
 interface CodeBlockProps {
   code: string;
@@ -20,6 +19,10 @@ export function CodeBlock({ code, language, html }: CodeBlockProps) {
     if (!blockRef.current) return;
     try {
       setIsExporting(true);
+
+      // Dynamically import html-to-image only when needed to reduce initial JS bundle size
+      const { toPng } = await import('html-to-image');
+
       // Memberikan jeda mikro agar DOM sempat menyembunyikan tombol sebelum di-render ke gambar
       await new Promise((resolve) => setTimeout(resolve, 50));
 
