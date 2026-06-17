@@ -46,7 +46,7 @@ export default function LoginPage() {
           Welcome Back
         </h1>
         <p className="text-on-surface-variant mb-8 leading-relaxed">
-          Sign in to access your snippets, save favorites, and share code with the Blackberry Space
+          Sign in to access your snippets, save likes, and share code with the Blackberry Space
           community.
         </p>
 

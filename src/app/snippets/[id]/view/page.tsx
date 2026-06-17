@@ -31,18 +31,16 @@ export default async function SnippetViewPage(props: { params: Promise<{ id: str
     notFound();
   }
 
-  let isFavorited = false;
+  let isLiked = false;
   if (user) {
-    const { data: favorite } = await supabase
-      .from('favorites')
+    const { data: like } = await supabase
+      .from('likes')
       .select('snippet_id')
       .eq('user_id', user.id)
       .eq('snippet_id', snippet.id)
-      .single();
+      .maybeSingle();
 
-    if (favorite) {
-      isFavorited = true;
-    }
+    if (like) isLiked = true;
   }
 
   const codeHtml = await highlightToHtml(snippet.code, snippet.language);
@@ -59,7 +57,7 @@ export default async function SnippetViewPage(props: { params: Promise<{ id: str
         </Link>
       </div>
 
-      <SnippetCard snippet={snippet} currentUser={user} isFavorited={isFavorited} />
+      <SnippetCard snippet={snippet} currentUser={user} isLiked={isLiked} />
       {user && user.id === snippet.user_id && <OwnerActions snippet={snippet} />}
       <div className="mt-8">
         <CodeBlock code={snippet.code} language={snippet.language} html={codeHtml} />

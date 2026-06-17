@@ -14,30 +14,37 @@ export type Database = {
   }
   public: {
     Tables: {
-      favorites: {
+      likes: {
         Row: {
-          created_at: string | null
-          snippet_id: string
           user_id: string
+          snippet_id: string
+          created_at: string | null
         }
         Insert: {
-          created_at?: string | null
-          snippet_id: string
           user_id: string
+          snippet_id: string
+          created_at?: string | null
         }
         Update: {
-          created_at?: string | null
-          snippet_id?: string
           user_id?: string
+          snippet_id?: string
+          created_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "favorites_snippet_id_fkey"
+            foreignKeyName: "likes_snippet_id_fkey"
             columns: ["snippet_id"]
             isOneToOne: false
             referencedRelation: "snippets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
         ]
       }
       profiles: {
@@ -67,6 +74,7 @@ export type Database = {
       snippets: {
         Row: {
           code: string
+          likes_count: number
           created_at: string | null
           credits: string | null
           description: string | null
@@ -78,6 +86,7 @@ export type Database = {
         }
         Insert: {
           code: string
+          likes_count?: number
           created_at?: string | null
           credits?: string | null
           description?: string | null
@@ -89,6 +98,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          likes_count?: number
           created_at?: string | null
           credits?: string | null
           description?: string | null

@@ -11,50 +11,45 @@ import type { SnippetWithProfile } from '@/lib/types';
 interface SnippetCardProps {
   snippet: SnippetWithProfile;
   currentUser: User | null;
-  isFavorited?: boolean;
-  onToggleFavorite?: (id: string, currentlyFavorited: boolean) => void;
+  isLiked?: boolean;
 }
 
-export function SnippetCardCompact({
-  snippet,
-  currentUser,
-  isFavorited = false,
-  onToggleFavorite,
-}: SnippetCardProps) {
-  const [localFavorited, setLocalFavorited] = useState(isFavorited);
-  const [isToggling, setIsToggling] = useState(false);
+export function SnippetCardCompact({ snippet, currentUser, isLiked = false }: SnippetCardProps) {
+  const [localLiked, setLocalLiked] = useState(isLiked);
+  const [localLikesCount, setLocalLikesCount] = useState(snippet.likes_count || 0);
+  const [isTogglingLike, setIsTogglingLike] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
 
-  const handleFavorite = async (e: React.MouseEvent) => {
+  const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!currentUser || isToggling) return;
+    if (!currentUser || isTogglingLike) return;
 
-    const next = !localFavorited;
-    setIsToggling(true);
-    setLocalFavorited(next);
-    if (onToggleFavorite) onToggleFavorite(snippet.id, localFavorited);
+    const nextLiked = !localLiked;
+    const nextCount = localLikesCount + (nextLiked ? 1 : -1);
+
+    setIsTogglingLike(true);
+    setLocalLiked(nextLiked);
+    setLocalLikesCount(nextCount);
 
     try {
-      const { error } = next
-        ? await supabase
-            .from('favorites')
-            .insert({ snippet_id: snippet.id, user_id: currentUser.id })
+      const { error } = nextLiked
+        ? await supabase.from('likes').insert({ snippet_id: snippet.id, user_id: currentUser.id })
         : await supabase
-            .from('favorites')
+            .from('likes')
             .delete()
             .eq('snippet_id', snippet.id)
             .eq('user_id', currentUser.id);
 
       if (error) throw error;
     } catch (err) {
-      setLocalFavorited(!next);
-      if (onToggleFavorite) onToggleFavorite(snippet.id, !next);
-      console.error('Failed to toggle favorite:', err);
+      setLocalLiked(!nextLiked);
+      setLocalLikesCount(localLikesCount);
+      console.error('Failed to toggle like:', err);
     } finally {
-      setIsToggling(false);
+      setIsTogglingLike(false);
     }
   };
 
@@ -82,22 +77,23 @@ export function SnippetCardCompact({
 
           <button
             type="button"
-            onClick={handleFavorite}
-            disabled={!currentUser || isToggling}
-            className={`p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0 ${!currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[rgba(255,255,255,0.05)] active:scale-95'} ${isToggling ? 'opacity-60 cursor-wait' : ''}`}
-            title={
-              !currentUser
-                ? 'Login to favorite'
-                : localFavorited
-                  ? 'Remove from favorites'
-                  : 'Add to favorites'
-            }
-            aria-label={localFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={handleLike}
+            disabled={!currentUser || isTogglingLike}
+            className={`p-2 flex items-center gap-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0 ${!currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[rgba(255,255,255,0.05)] active:scale-95'} ${isTogglingLike ? 'opacity-60 cursor-wait' : ''}`}
+            title={!currentUser ? 'Login to like' : localLiked ? 'Unlike snippet' : 'Like snippet'}
+            aria-label={localLiked ? 'Unlike snippet' : 'Like snippet'}
           >
             <Heart
-              className={`w-5 h-5 ${localFavorited ? 'fill-primary text-primary' : 'text-outline group-hover:text-on-surface'}`}
+              className={`w-5 h-5 ${localLiked ? 'fill-primary text-primary' : 'text-outline group-hover:text-on-surface'}`}
               aria-hidden="true"
             />
+            {localLikesCount > 0 && (
+              <span
+                className={`text-sm font-bold ${localLiked ? 'text-primary' : 'text-on-surface-variant group-hover:text-on-surface'}`}
+              >
+                {localLikesCount}
+              </span>
+            )}
           </button>
         </div>
 
