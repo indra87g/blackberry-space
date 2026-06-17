@@ -44,20 +44,20 @@ export default async function Home(props: {
     }
   }
 
-  // The snippets list and the user's favorites are independent reads — run them
+  // The snippets list and the user's likes are independent reads — run them
   // concurrently so the page waits on one round-trip instead of two.
-  const [{ data: snippets, count, error }, { data: favorites }] = await Promise.all([
+  const [{ data: snippets, count, error }, { data: likes }] = await Promise.all([
     query,
     user
-      ? supabase.from('favorites').select('snippet_id').eq('user_id', user.id)
+      ? supabase.from('likes').select('snippet_id').eq('user_id', user.id)
       : Promise.resolve({ data: null }),
   ]);
 
   const totalPages = count ? Math.ceil(count / itemsPerPage) : 0;
 
-  const favoritedSnippetIds = new Set<string>();
-  if (favorites) {
-    favorites.forEach((f) => favoritedSnippetIds.add(f.snippet_id));
+  const likedSnippetIds = new Set<string>();
+  if (likes) {
+    likes.forEach((l) => likedSnippetIds.add(l.snippet_id));
   }
 
   return (
@@ -92,7 +92,7 @@ export default async function Home(props: {
               key={snippet.id}
               snippet={snippet}
               currentUser={user}
-              isFavorited={favoritedSnippetIds.has(snippet.id)}
+              isLiked={likedSnippetIds.has(snippet.id)}
             />
           ))}
         </div>

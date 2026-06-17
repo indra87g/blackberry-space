@@ -62,7 +62,7 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/'); 
+    router.push('/');
     router.refresh();
   };
 

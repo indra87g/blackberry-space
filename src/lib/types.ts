@@ -13,6 +13,7 @@ export type SnippetWithProfile = {
   credits?: string | null;
   created_at: string | null;
   user_id: string | null;
+  likes_count: number;
   profiles?: {
     full_name: string | null;
     avatar_url: string | null;

@@ -1,17 +1,14 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { SnippetCardCompact } from '@/components/snippet-card-compact';
-import { FileCode2, Heart, Calendar } from 'lucide-react';
+import { FileCode2, Calendar } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import type { SnippetWithProfile } from '@/lib/types';
 
 export const revalidate = 0;
 
-export default async function ProfilePage(props: { searchParams: Promise<{ tab?: string }> }) {
-  const searchParams = await props.searchParams;
-  const tab = searchParams?.tab || 'snippets';
-
+export default async function ProfilePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,50 +18,29 @@ export default async function ProfilePage(props: { searchParams: Promise<{ tab?:
     redirect('/');
   }
 
-  // Profile row, the favorite-id set (for toggling), and the active tab's data
+  // Profile row, the likes-id set (for toggling), and the snippets data
   // are independent reads — fetch them concurrently.
-  const tabQuery =
-    tab === 'favorites'
-      ? supabase
-          .from('favorites')
-          .select(`
-        snippet_id,
-        snippets (
-          *,
-          profiles ( full_name, avatar_url, username )
-        )
-      `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-      : supabase
-          .from('snippets')
-          .select(`
+  const tabQuery = supabase
+    .from('snippets')
+    .select(`
         *,
         profiles ( full_name, avatar_url, username )
       `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
 
-  const [{ data: profile }, { data: favoritesData }, { data: tabData }] = await Promise.all([
+  const [{ data: profile }, { data: likesData }, { data: tabData }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
-    supabase.from('favorites').select('snippet_id').eq('user_id', user.id),
+    supabase.from('likes').select('snippet_id').eq('user_id', user.id),
     tabQuery,
   ]);
 
-  const favoritedSnippetIds = new Set<string>();
-  if (favoritesData) {
-    favoritesData.forEach((f) => favoritedSnippetIds.add(f.snippet_id));
+  const likedSnippetIds = new Set<string>();
+  if (likesData) {
+    likesData.forEach((l) => likedSnippetIds.add(l.snippet_id));
   }
 
-  let snippets: SnippetWithProfile[] = [];
-  if (tab === 'favorites') {
-    // Map out the nested snippet structure
-    snippets = ((tabData as { snippets: SnippetWithProfile | null }[] | null) || [])
-      .map((f) => f.snippets)
-      .filter((s): s is SnippetWithProfile => s !== null);
-  } else {
-    snippets = (tabData as SnippetWithProfile[]) || [];
-  }
+  const snippets: SnippetWithProfile[] = (tabData as SnippetWithProfile[]) || [];
 
   return (
     <div className="pb-12 max-w-4xl mx-auto">
@@ -109,26 +85,11 @@ export default async function ProfilePage(props: { searchParams: Promise<{ tab?:
 
       <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.05)] mb-8">
         <Link
-          href="/profile?tab=snippets"
-          className={`flex items-center gap-2 px-4 py-3 transition-colors font-bold uppercase tracking-wider text-sm border-b-2 -mb-px ${
-            tab === 'snippets'
-              ? 'text-primary border-primary'
-              : 'text-on-surface-variant border-transparent hover:text-on-surface'
-          }`}
+          href="/profile"
+          className="flex items-center gap-2 px-4 py-3 transition-colors font-bold uppercase tracking-wider text-sm border-b-2 -mb-px text-primary border-primary"
         >
           <FileCode2 className="w-4 h-4" />
           My Snippets
-        </Link>
-        <Link
-          href="/profile?tab=favorites"
-          className={`flex items-center gap-2 px-4 py-3 transition-colors font-bold uppercase tracking-wider text-sm border-b-2 -mb-px ${
-            tab === 'favorites'
-              ? 'text-primary border-primary'
-              : 'text-on-surface-variant border-transparent hover:text-on-surface'
-          }`}
-        >
-          <Heart className="w-4 h-4" />
-          Favorites
         </Link>
       </div>
 
@@ -139,26 +100,18 @@ export default async function ProfilePage(props: { searchParams: Promise<{ tab?:
               key={snippet.id}
               snippet={snippet}
               currentUser={user}
-              isFavorited={favoritedSnippetIds.has(snippet.id)}
+              isLiked={likedSnippetIds.has(snippet.id)}
             />
           ))}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-outline-variant bg-surface-container/30">
           <div className="w-16 h-16 bg-surface-container-high flex items-center justify-center mb-4">
-            {tab === 'snippets' ? (
-              <FileCode2 className="w-8 h-8 text-on-surface-variant" />
-            ) : (
-              <Heart className="w-8 h-8 text-on-surface-variant" />
-            )}
+            <FileCode2 className="w-8 h-8 text-on-surface-variant" />
           </div>
-          <h3 className="text-xl font-bold text-on-surface mb-2">
-            {tab === 'snippets' ? 'No snippets yet' : 'No favorites yet'}
-          </h3>
+          <h3 className="text-xl font-bold text-on-surface mb-2">No snippets yet</h3>
           <p className="text-on-surface-variant max-w-sm">
-            {tab === 'snippets'
-              ? "You haven't shared any code snippets with the community yet."
-              : "You haven't favorited any snippets yet. Explore the community and save your favorites!"}
+            You haven't shared any code snippets with the community yet.
           </p>
         </div>
       )}
