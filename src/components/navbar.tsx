@@ -24,6 +24,7 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSnippetsOpen, setIsSnippetsOpen] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(initialUser);
   const supabase = createClient();
 
