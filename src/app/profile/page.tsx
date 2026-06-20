@@ -18,29 +18,37 @@ export default async function ProfilePage() {
     redirect('/');
   }
 
-  // Profile row, the likes-id set (for toggling), and the snippets data
-  // are independent reads — fetch them concurrently.
-  const tabQuery = supabase
-    .from('snippets')
-    .select(`
-        *,
-        profiles ( full_name, avatar_url, username )
-      `)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  const [{ data: profile }, { data: likesData }, { data: tabData }] = await Promise.all([
+  // Fetch profile and snippets first concurrently
+  const [{ data: profile }, { data: tabData }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
-    supabase.from('likes').select('snippet_id').eq('user_id', user.id),
-    tabQuery,
+    supabase
+      .from('snippets')
+      .select(`
+          *,
+          profiles ( full_name, avatar_url, username )
+        `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }),
   ]);
 
-  const likedSnippetIds = new Set<string>();
-  if (likesData) {
-    likesData.forEach((l) => likedSnippetIds.add(l.snippet_id));
-  }
-
   const snippets: SnippetWithProfile[] = (tabData as SnippetWithProfile[]) || [];
+
+  // ⚡ Bolt: Prevent O(N) over-fetching of likes
+  // Instead of fetching ALL user likes concurrently, we fetch snippets first
+  // and use an .in() filter to only fetch likes for the snippets actually shown on this page.
+  const likedSnippetIds = new Set<string>();
+  if (snippets.length > 0) {
+    const snippetIds = snippets.map((s) => s.id);
+    const { data: likesData } = await supabase
+      .from('likes')
+      .select('snippet_id')
+      .eq('user_id', user.id)
+      .in('snippet_id', snippetIds);
+
+    if (likesData) {
+      likesData.forEach((l) => likedSnippetIds.add(l.snippet_id));
+    }
+  }
 
   return (
     <div className="pb-12 max-w-4xl mx-auto">

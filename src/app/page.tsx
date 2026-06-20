@@ -44,20 +44,27 @@ export default async function Home(props: {
     }
   }
 
-  // The snippets list and the user's likes are independent reads — run them
-  // concurrently so the page waits on one round-trip instead of two.
-  const [{ data: snippets, count, error }, { data: likes }] = await Promise.all([
-    query,
-    user
-      ? supabase.from('likes').select('snippet_id').eq('user_id', user.id)
-      : Promise.resolve({ data: null }),
-  ]);
+  // Fetch snippets first sequentially
+  const { data: snippets, count, error } = await query;
 
   const totalPages = count ? Math.ceil(count / itemsPerPage) : 0;
 
+  // ⚡ Bolt: Prevent O(N) over-fetching of likes
+  // Instead of fetching ALL user likes concurrently, we fetch snippets first
+  // and use an .in() filter to only fetch likes for the snippets actually shown on this page.
+  // This reduces the payload from potentially 1000+ likes to max 10.
   const likedSnippetIds = new Set<string>();
-  if (likes) {
-    likes.forEach((l) => likedSnippetIds.add(l.snippet_id));
+  if (user && snippets && snippets.length > 0) {
+    const snippetIds = snippets.map((s) => s.id);
+    const { data: likes } = await supabase
+      .from('likes')
+      .select('snippet_id')
+      .eq('user_id', user.id)
+      .in('snippet_id', snippetIds);
+
+    if (likes) {
+      likes.forEach((l) => likedSnippetIds.add(l.snippet_id));
+    }
   }
 
   return (
