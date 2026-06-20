@@ -54,6 +54,8 @@ export type Database = {
           full_name: string | null
           id: string
           username: string | null
+          thorium: number
+          isAdmin: boolean
         }
         Insert: {
           avatar_url?: string | null
@@ -61,6 +63,8 @@ export type Database = {
           full_name?: string | null
           id: string
           username?: string | null
+          thorium?: number
+          isAdmin?: boolean
         }
         Update: {
           avatar_url?: string | null
@@ -68,6 +72,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           username?: string | null
+          thorium?: number
+          isAdmin?: boolean
         }
         Relationships: []
       }
@@ -83,6 +89,7 @@ export type Database = {
           tags: string[] | null
           title: string
           user_id: string | null
+          forkable: boolean
         }
         Insert: {
           code: string
@@ -95,6 +102,7 @@ export type Database = {
           tags?: string[] | null
           title: string
           user_id?: string | null
+          forkable?: boolean
         }
         Update: {
           code?: string
@@ -107,6 +115,7 @@ export type Database = {
           tags?: string[] | null
           title?: string
           user_id?: string | null
+          forkable?: boolean
         }
         Relationships: [
           {
@@ -117,6 +126,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_settings: {
+        Row: {
+          key: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          value?: Json
+        }
+        Relationships: []
       }
     }
     Views: {

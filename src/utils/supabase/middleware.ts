@@ -42,10 +42,46 @@ export const updateSession = async (request: NextRequest) => {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // CHECK MAINTENANCE MODE
+  const { data: settings } = await supabase
+    .from('system_settings')
+    .select('value')
+    .eq('key', 'maintenance_mode')
+    .single();
+
+  const isMaintenance = settings?.value === true;
+  const isMaintenancePage = request.nextUrl.pathname.startsWith('/maintenance');
+  const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+  const isAuthCallback = request.nextUrl.pathname.startsWith('/auth/callback');
+
+  if (isMaintenance && !isMaintenancePage && !isLoginPage && !isAuthCallback) {
+    // Check if user is admin
+    let isAdmin = false;
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('isAdmin')
+        .eq('id', user.id)
+        .single();
+      isAdmin = profile?.isAdmin || false;
+    }
+
+    if (!isAdmin) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/maintenance';
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
+  // If site is NOT in maintenance but user is on maintenance page, redirect to home
+  if (!isMaintenance && isMaintenancePage) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/';
+    return NextResponse.redirect(redirectUrl);
+  }
+
   // Redirect to login if user is not authenticated and trying to access protected routes
-  const isAuthRoute =
-    request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/auth/callback');
+  const isAuthRoute = isLoginPage || isAuthCallback || isMaintenancePage;
 
   if (!user && !isAuthRoute) {
     // Note: User's requirement says "mengharuskan guest untuk login terlebih dahulu agar bisa mengakses seluruh konten"
@@ -56,7 +92,7 @@ export const updateSession = async (request: NextRequest) => {
   }
 
   // If user is logged in but tries to access login page, redirect to home
-  if (user && request.nextUrl.pathname === '/login') {
+  if (user && isLoginPage) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/';
     return NextResponse.redirect(redirectUrl);

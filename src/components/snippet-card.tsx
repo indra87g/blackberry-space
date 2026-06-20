@@ -1,9 +1,10 @@
 'use client';
 
-import { Heart, Share2, Check } from 'lucide-react';
+import { Heart, Share2, Check, GitFork, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import type { SnippetWithProfile } from '@/lib/types';
 
@@ -14,9 +15,11 @@ interface SnippetCardProps {
 }
 
 export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCardProps) {
+  const router = useRouter();
   const [localLiked, setLocalLiked] = useState(isLiked);
   const [localLikesCount, setLocalLikesCount] = useState(snippet.likes_count || 0);
   const [isTogglingLike, setIsTogglingLike] = useState(false);
+  const [isForking, setIsForking] = useState(false);
   const [shared, setShared] = useState(false);
 
   const supabase = createClient();
@@ -26,6 +29,38 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
     await navigator.clipboard.writeText(url);
     setShared(true);
     setTimeout(() => setShared(false), 2000);
+  };
+
+  const handleFork = async () => {
+    if (!currentUser || isForking) return;
+
+    setIsForking(true);
+    try {
+      const { data, error } = await supabase
+        .from('snippets')
+        .insert({
+          title: `Fork of ${snippet.title}`,
+          description: snippet.description,
+          language: snippet.language,
+          code: snippet.code,
+          tags: snippet.tags,
+          credits: `Forked from @${snippet.profiles?.username || 'unknown'}`,
+          user_id: currentUser.id,
+          forkable: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      router.push(`/snippets/${data.id}/view`);
+      router.refresh();
+    } catch (err) {
+      console.error('Failed to fork snippet:', err);
+      alert('Failed to fork snippet. Please try again.');
+    } finally {
+      setIsForking(false);
+    }
   };
 
   const handleLike = async () => {
@@ -57,6 +92,8 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
     }
   };
 
+  const canFork = snippet.forkable && currentUser && currentUser.id !== snippet.user_id;
+
   return (
     <div className="card-container overflow-hidden flex flex-col group">
       <div className="p-5 flex flex-col gap-4">
@@ -71,6 +108,23 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
           </div>
 
           <div className="flex items-center gap-1">
+            {canFork && (
+              <button
+                type="button"
+                onClick={handleFork}
+                disabled={isForking}
+                className="p-2 transition-all hover:bg-[rgba(255,255,255,0.05)] text-outline hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                title="Fork snippet"
+                aria-label="Fork snippet"
+              >
+                {isForking ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <GitFork className="w-5 h-5" aria-hidden="true" />
+                )}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleShare}

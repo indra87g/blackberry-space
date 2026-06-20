@@ -14,11 +14,14 @@ import {
   Swords,
   ChevronDown,
   ChevronRight,
+  ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import type { User } from '@supabase/supabase-js';
+import type { Profile } from '@/lib/types';
 
 export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,6 +29,7 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(initialUser);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -36,6 +40,18 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
     });
     return () => authListener.subscription.unsubscribe();
   }, [supabase.auth]);
+
+  useEffect(() => {
+    async function fetchProfile() {
+      if (user) {
+        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        setProfile(data);
+      } else {
+        setProfile(null);
+      }
+    }
+    fetchProfile();
+  }, [user, supabase]);
 
   // Handle body scroll locking when mobile menu is open
   useEffect(() => {
@@ -70,6 +86,10 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
     { name: 'Home', href: 'https://blackberryhazard.pages.dev', icon: Home, external: true },
     { name: 'Challenges', href: '/coming-soon', icon: Swords },
   ];
+
+  if (profile?.isAdmin) {
+    menus.push({ name: 'Admin', href: '/admin', icon: ShieldCheck });
+  }
 
   return (
     <>
@@ -121,31 +141,41 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center">
             {user ? (
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={
-                      user.user_metadata.avatar_url || 'https://picsum.photos/seed/picsum/200/200'
-                    }
-                    width={32}
-                    height={32}
-                    decoding="async"
-                    className="w-8 h-8 bg-surface-container border border-[rgba(255,255,255,0.1)]"
-                    alt="Avatar"
-                  />
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="text-on-surface hover:text-error transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
+              <div className="flex items-center gap-6">
+                {profile && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-container border border-[rgba(255,255,255,0.05)] rounded-full">
+                    <Zap className="w-3.5 h-3.5 text-primary fill-primary" />
+                    <span className="text-sm font-bold text-on-surface uppercase tracking-wider">
+                      {profile.thorium} Thorium
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        user.user_metadata.avatar_url || 'https://picsum.photos/seed/picsum/200/200'
+                      }
+                      width={32}
+                      height={32}
+                      decoding="async"
+                      className="w-8 h-8 bg-surface-container border border-[rgba(255,255,255,0.1)]"
+                      alt="Avatar"
+                    />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="text-on-surface hover:text-error transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ) : (
               <Link
@@ -278,6 +308,14 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
         <div className="p-4 border-t border-[rgba(255,255,255,0.05)] bg-surface-container">
           {user ? (
             <div className="flex flex-col gap-4">
+              {profile && (
+                <div className="flex items-center gap-2 px-3 py-3 bg-background border border-[rgba(255,255,255,0.05)]">
+                  <Zap className="w-4 h-4 text-primary fill-primary" />
+                  <span className="text-sm font-bold text-on-surface uppercase tracking-wider">
+                    {profile.thorium} Thorium
+                  </span>
+                </div>
+              )}
               <Link
                 href="/profile"
                 onClick={() => setIsOpen(false)}

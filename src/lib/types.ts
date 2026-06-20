@@ -14,6 +14,7 @@ export type SnippetWithProfile = {
   created_at: string | null;
   user_id: string | null;
   likes_count: number;
+  forkable: boolean;
   profiles?: {
     full_name: string | null;
     avatar_url: string | null;
