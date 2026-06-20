@@ -48,7 +48,7 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
     }
 
     fetchSnippet();
-  }, [resolvedParams.id, router, supabase]);
+  }, [resolvedParams.id, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

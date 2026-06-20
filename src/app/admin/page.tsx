@@ -47,7 +47,7 @@ export default function AdminDashboard() {
     }
 
     checkAdmin();
-  }, [supabase, router]);
+  }, [router]);
 
   const toggleMaintenance = async () => {
     setSaving(true);

@@ -9,10 +9,17 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 // which silently breaks login — so fall back to Lax + insecure there.
 const isProd = process.env.NODE_ENV === 'production';
 
-export const createClient = () =>
-  createBrowserClient<Database>(supabaseUrl!, supabaseKey!, {
+let client: ReturnType<typeof createBrowserClient<Database>> | undefined;
+
+export const createClient = () => {
+  if (client) return client;
+
+  client = createBrowserClient<Database>(supabaseUrl!, supabaseKey!, {
     cookieOptions: {
       sameSite: isProd ? 'none' : 'lax',
       secure: isProd,
     },
   });
+
+  return client;
+};
