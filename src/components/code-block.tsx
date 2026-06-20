@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Copy, Check, Download, Loader2 } from 'lucide-react';
+import DOMPurify from 'isomorphic-dompurify';
 
 interface CodeBlockProps {
   code: string;
@@ -106,7 +107,7 @@ export function CodeBlock({ code, language, html }: CodeBlockProps) {
       </div>
       <div className="p-4 overflow-auto custom-scrollbar font-mono text-sm leading-relaxed max-h-[600px] bg-surface-container-lowest">
         <div
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
           className="
             [&>pre]:!bg-transparent [&>pre]:!p-0 [&>pre]:!m-0 [&>pre]:!text-[0.875rem]
             [&>pre>code]:[counter-reset:line]
