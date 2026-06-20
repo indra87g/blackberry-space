@@ -48,7 +48,7 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
     }
 
     fetchSnippet();
-  }, [resolvedParams.id, router, supabase]);
+  }, [resolvedParams.id, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -62,6 +62,7 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
     const code = formData.get('code') as string;
     const tagsString = formData.get('tags') as string;
     const credits = formData.get('credits') as string;
+    const forkable = formData.get('forkable') === 'on';
 
     const tags = tagsString
       .split(',')
@@ -87,6 +88,7 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
           code,
           tags,
           credits,
+          forkable,
         })
         .eq('id', resolvedParams.id)
         .eq('user_id', user.id);
@@ -270,6 +272,22 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
               placeholder="Original author or source link"
               className="input-default w-full px-4 py-3"
             />
+          </div>
+
+          <div className="space-y-2 md:col-span-2 flex items-center gap-3">
+            <input
+              type="checkbox"
+              name="forkable"
+              id="forkable"
+              defaultChecked={snippet.forkable}
+              className="w-5 h-5 accent-primary bg-surface-container border-outline rounded focus:ring-primary focus:ring-offset-background"
+            />
+            <label
+              htmlFor="forkable"
+              className="text-sm font-bold text-on-surface uppercase tracking-wider cursor-pointer select-none"
+            >
+              Allow others to fork this snippet
+            </label>
           </div>
         </div>
 
