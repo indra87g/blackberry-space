@@ -7,7 +7,6 @@ import { createClient } from '@/utils/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import type { User } from '@supabase/supabase-js';
 import type { SnippetWithProfile } from '@/lib/types';
-import { block } from 'million/react';
 import { useMutation } from '@tanstack/react-query';
 
 interface SnippetCardProps {
@@ -16,11 +15,7 @@ interface SnippetCardProps {
   isLiked?: boolean;
 }
 
-const SnippetCardCompactBlock = block(function SnippetCardCompact({
-  snippet,
-  currentUser,
-  isLiked = false,
-}: SnippetCardProps) {
+export function SnippetCardCompact({ snippet, currentUser, isLiked = false }: SnippetCardProps) {
   const [localLiked, setLocalLiked] = useState(isLiked);
   const [localLikesCount, setLocalLikesCount] = useState(snippet.likes_count || 0);
 
@@ -45,7 +40,6 @@ const SnippetCardCompactBlock = block(function SnippetCardCompact({
       return nextLiked;
     },
     onMutate: async () => {
-      // Optimistic update
       const nextLiked = !localLiked;
       const nextCount = localLikesCount + (nextLiked ? 1 : -1);
 
@@ -165,6 +159,4 @@ const SnippetCardCompactBlock = block(function SnippetCardCompact({
       </div>
     </div>
   );
-});
-
-export const SnippetCardCompact = SnippetCardCompactBlock as any;
+}

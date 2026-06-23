@@ -7,7 +7,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import type { SnippetWithProfile } from '@/lib/types';
-import { block } from 'million/react';
 import { useMutation } from '@tanstack/react-query';
 
 interface SnippetCardProps {
@@ -16,11 +15,7 @@ interface SnippetCardProps {
   isLiked?: boolean;
 }
 
-const SnippetCardBlock = block(function SnippetCard({
-  snippet,
-  currentUser,
-  isLiked = false,
-}: SnippetCardProps) {
+export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCardProps) {
   const router = useRouter();
   const [localLiked, setLocalLiked] = useState(isLiked);
   const [localLikesCount, setLocalLikesCount] = useState(snippet.likes_count || 0);
@@ -229,6 +224,4 @@ const SnippetCardBlock = block(function SnippetCard({
       </div>
     </div>
   );
-});
-
-export const SnippetCard = SnippetCardBlock as any;
+}
