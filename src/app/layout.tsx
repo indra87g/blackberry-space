@@ -4,6 +4,7 @@ import { Outfit, JetBrains_Mono } from 'next/font/google';
 import { Navbar } from '@/components/navbar';
 import Script from 'next/script';
 import { createClient } from '@/utils/supabase/server';
+import { Providers } from '@/components/providers';
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -86,9 +87,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           strategy="afterInteractive"
         />
 
-        <Navbar initialUser={user} />
-
-        <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">{children}</main>
+        <Providers>
+          <Navbar initialUser={user} />
+          <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">{children}</main>
+        </Providers>
       </body>
     </html>
   );

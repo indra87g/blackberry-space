@@ -1,46 +1,37 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 
 export default function CreateSnippetPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  const createMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const title = formData.get('title') as string;
+      const description = formData.get('description') as string;
+      const language = formData.get('language') as string;
+      const code = formData.get('code') as string;
+      const tagsString = formData.get('tags') as string;
+      const credits = formData.get('credits') as string;
+      const forkable = formData.get('forkable') === 'on';
 
-    const formData = new FormData(e.currentTarget);
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-    const language = formData.get('language') as string;
-    const code = formData.get('code') as string;
-    const tagsString = formData.get('tags') as string;
-    const credits = formData.get('credits') as string;
-    const forkable = formData.get('forkable') === 'on';
+      const tags = tagsString
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
 
-    const tags = tagsString
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('You must be logged in to create a snippet.');
+      }
 
-    if (!user) {
-      setError('You must be logged in to create a snippet.');
-      setLoading(false);
-      return;
-    }
-
-    try {
       const { error: insertError } = await supabase
         .from('snippets')
         .insert({
@@ -56,18 +47,20 @@ export default function CreateSnippetPage() {
         .select()
         .single();
 
-      if (insertError) {
-        console.error(insertError);
-        setError(insertError.message || 'Failed to create snippet.');
-      } else {
-        router.push('/');
-        router.refresh();
-      }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setLoading(false);
-    }
+      if (insertError) throw insertError;
+    },
+    onSuccess: () => {
+      router.push('/');
+      router.refresh();
+    },
+    onError: (err) => {
+      console.error(err);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    createMutation.mutate(new FormData(e.currentTarget));
   };
 
   const languages = [
@@ -104,9 +97,9 @@ export default function CreateSnippetPage() {
         </p>
       </div>
 
-      {error && (
+      {createMutation.isError && (
         <div className="mb-6 p-4 bg-[rgba(255,180,171,0.1)] border border-error text-error font-bold uppercase tracking-wider text-sm">
-          {error}
+          {createMutation.error.message || 'An unexpected error occurred.'}
         </div>
       )}
 
@@ -239,10 +232,10 @@ export default function CreateSnippetPage() {
         <div className="pt-4 flex items-center justify-end">
           <button
             type="submit"
-            disabled={loading}
+            disabled={createMutation.isPending}
             className="flex items-center gap-2 btn-primary px-8 py-3 text-sm uppercase tracking-wider disabled:opacity-50 disabled:pointer-events-none"
           >
-            {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+            {createMutation.isPending && <Loader2 className="w-5 h-5 animate-spin" />}
             Publish Snippet
           </button>
         </div>

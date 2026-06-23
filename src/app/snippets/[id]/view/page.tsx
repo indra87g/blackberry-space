@@ -6,6 +6,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { highlightToHtml } from '@/lib/highlighter';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
+import { getQueryClient } from '@/app/get-query-client';
 
 export const revalidate = 0;
 
@@ -18,16 +20,28 @@ export default async function SnippetViewPage(props: { params: Promise<{ id: str
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: snippet, error } = await supabase
-    .from('snippets')
-    .select(`
-      *,
-      profiles ( full_name, avatar_url, username )
-    `)
-    .eq('id', id)
-    .single();
+  const queryClient = getQueryClient();
 
-  if (error || !snippet) {
+  await queryClient.prefetchQuery({
+    queryKey: ['snippet', id],
+    queryFn: async () => {
+      const { data: snippet, error } = await supabase
+        .from('snippets')
+        .select(`
+          *,
+          profiles ( full_name, avatar_url, username )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error || !snippet) return null;
+      return snippet;
+    },
+  });
+
+  const snippet = queryClient.getQueryData(['snippet', id]) as any;
+
+  if (!snippet) {
     notFound();
   }
 
@@ -57,11 +71,13 @@ export default async function SnippetViewPage(props: { params: Promise<{ id: str
         </Link>
       </div>
 
-      <SnippetCard snippet={snippet} currentUser={user} isLiked={isLiked} />
-      {user && user.id === snippet.user_id && <OwnerActions snippet={snippet} />}
-      <div className="mt-8">
-        <CodeBlock code={snippet.code} language={snippet.language} html={codeHtml} />
-      </div>
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <SnippetCard snippet={snippet} currentUser={user} isLiked={isLiked} />
+        {user && user.id === snippet.user_id && <OwnerActions snippet={snippet} />}
+        <div className="mt-8">
+          <CodeBlock code={snippet.code} language={snippet.language} html={codeHtml} />
+        </div>
+      </HydrationBoundary>
     </div>
   );
 }

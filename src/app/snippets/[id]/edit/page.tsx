@@ -1,75 +1,63 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 export default function EditSnippetPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const supabase = createClient();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const [snippet, setSnippet] = useState<any>(null);
   const resolvedParams = use(params);
 
-  useEffect(() => {
-    async function fetchSnippet() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          router.push('/');
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('snippets')
-          .select('*')
-          .eq('id', resolvedParams.id)
-          .single();
-
-        if (error) throw error;
-
-        if (data.user_id !== user.id) {
-          router.push('/');
-          return;
-        }
-
-        setSnippet(data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load snippet');
-      } finally {
-        setLoading(false);
+  const {
+    data: snippet,
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: ['snippet', resolvedParams.id],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/');
+        return null;
       }
-    }
 
-    fetchSnippet();
-  }, [resolvedParams.id, router]);
+      const { data, error } = await supabase
+        .from('snippets')
+        .select('*')
+        .eq('id', resolvedParams.id)
+        .single();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
+      if (error) throw error;
 
-    const formData = new FormData(e.currentTarget);
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-    const language = formData.get('language') as string;
-    const code = formData.get('code') as string;
-    const tagsString = formData.get('tags') as string;
-    const credits = formData.get('credits') as string;
-    const forkable = formData.get('forkable') === 'on';
+      if (data.user_id !== user.id) {
+        router.push('/');
+        return null;
+      }
 
-    const tags = tagsString
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
+      return data;
+    },
+  });
 
-    try {
+  const updateMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const title = formData.get('title') as string;
+      const description = formData.get('description') as string;
+      const language = formData.get('language') as string;
+      const code = formData.get('code') as string;
+      const tagsString = formData.get('tags') as string;
+      const credits = formData.get('credits') as string;
+      const forkable = formData.get('forkable') === 'on';
+
+      const tags = tagsString
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -77,8 +65,6 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
         throw new Error('You must be logged in to edit this snippet.');
       }
 
-      // SECURITY ENHANCEMENT: Defense in depth to prevent IDOR
-      // Ensures only the snippet owner can update it, even if RLS is misconfigured
       const { error: updateError } = await supabase
         .from('snippets')
         .update({
@@ -93,17 +79,20 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
         .eq('id', resolvedParams.id)
         .eq('user_id', user.id);
 
-      if (updateError) {
-        throw updateError;
-      } else {
-        router.push('/');
-        router.refresh();
-      }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setSaving(false);
-    }
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      router.push('/');
+      router.refresh();
+    },
+    onError: (err) => {
+      console.error(err);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    updateMutation.mutate(new FormData(e.currentTarget));
   };
 
   const languages = [
@@ -139,8 +128,10 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
 
   if (!snippet) {
     return (
-      <div className="text-center text-error">
-        Snippet not found or you do not have permission to edit it.
+      <div className="text-center text-error py-20">
+        {fetchError
+          ? (fetchError as Error).message
+          : 'Snippet not found or you do not have permission to edit it.'}
       </div>
     );
   }
@@ -154,9 +145,9 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
         <p className="text-on-surface-variant text-lg">Update your shared code.</p>
       </div>
 
-      {error && (
+      {(updateMutation.isError || fetchError) && (
         <div className="mb-6 p-4 bg-[rgba(255,180,171,0.1)] border border-error text-error font-bold uppercase tracking-wider text-sm">
-          {error}
+          {updateMutation.isError ? updateMutation.error.message : (fetchError as Error).message}
         </div>
       )}
 
@@ -295,17 +286,17 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
           <button
             type="button"
             onClick={() => router.back()}
-            disabled={saving}
+            disabled={updateMutation.isPending}
             className="px-6 py-3 font-bold text-on-surface hover:text-on-surface transition-colors uppercase tracking-wider text-sm"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={saving}
+            disabled={updateMutation.isPending}
             className="flex items-center gap-2 btn-primary px-8 py-3 text-sm uppercase tracking-wider disabled:opacity-50 disabled:pointer-events-none"
           >
-            {saving && <Loader2 className="w-5 h-5 animate-spin" />}
+            {updateMutation.isPending && <Loader2 className="w-5 h-5 animate-spin" />}
             Save Changes
           </button>
         </div>

@@ -4,6 +4,8 @@ import { Code } from 'lucide-react';
 import Link from 'next/link';
 import { SearchBar } from '@/components/search-bar';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
+import { getQueryClient } from '@/app/get-query-client';
 
 export const revalidate = 0; // Disable full page caching to always show latest snippets/auth state
 
@@ -22,40 +24,47 @@ export default async function Home(props: {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch snippets
-  let query = supabase
-    .from('snippets')
-    .select(
-      `
-      *,
-      profiles ( full_name, avatar_url, username )
-    `,
-      { count: 'planned' },
-    )
-    .order('created_at', { ascending: false })
-    .range(from, to);
+  const queryClient = getQueryClient();
 
-  if (q) {
-    // Strip characters that have special meaning in PostgREST's `or` grammar
-    // (comma / parentheses) before interpolating the user's search term.
-    const term = q.replace(/[,()]/g, ' ').trim();
-    if (term) {
-      query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
-    }
-  }
+  // Prefetch snippets
+  await queryClient.prefetchQuery({
+    queryKey: ['snippets', { q, page: currentPage }],
+    queryFn: async () => {
+      let query = supabase
+        .from('snippets')
+        .select(
+          `
+          *,
+          profiles ( full_name, avatar_url, username )
+        `,
+          { count: 'planned' },
+        )
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-  // Fetch snippets first sequentially
-  const { data: snippets, count, error } = await query;
+      if (q) {
+        const term = q.replace(/[,()]/g, ' ').trim();
+        if (term) {
+          query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+        }
+      }
 
+      const { data: snippets, count, error } = await query;
+      if (error) throw error;
+
+      return { snippets, count };
+    },
+  });
+
+  const { snippets, count } = (queryClient.getQueryData([
+    'snippets',
+    { q, page: currentPage },
+  ]) as any) || { snippets: [], count: 0 };
   const totalPages = count ? Math.ceil(count / itemsPerPage) : 0;
 
-  // ⚡ Bolt: Prevent O(N) over-fetching of likes
-  // Instead of fetching ALL user likes concurrently, we fetch snippets first
-  // and use an .in() filter to only fetch likes for the snippets actually shown on this page.
-  // This reduces the payload from potentially 1000+ likes to max 10.
   const likedSnippetIds = new Set<string>();
   if (user && snippets && snippets.length > 0) {
-    const snippetIds = snippets.map((s) => s.id);
+    const snippetIds = snippets.map((s: any) => s.id);
     const { data: likes } = await supabase
       .from('likes')
       .select('snippet_id')
@@ -63,7 +72,7 @@ export default async function Home(props: {
       .in('snippet_id', snippetIds);
 
     if (likes) {
-      likes.forEach((l) => likedSnippetIds.add(l.snippet_id));
+      likes.forEach((l: any) => likedSnippetIds.add(l.snippet_id));
     }
   }
 
@@ -81,42 +90,33 @@ export default async function Home(props: {
         <SearchBar />
       </div>
 
-      {error ? (
-        <div className="p-6 bg-[rgba(255,180,171,0.1)] border border-error text-error">
-          <p className="font-semibold mb-1">Error fetching snippets.</p>
-          <p className="text-sm">
-            Please make sure the &quot;snippets&quot; table exists and policies are configured
-            correctly.
-          </p>
-          <pre className="mt-4 text-xs font-mono bg-surface-container-lowest p-2">
-            {error.message}
-          </pre>
-        </div>
-      ) : snippets && snippets.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {snippets.map((snippet) => (
-            <SnippetCardCompact
-              key={snippet.id}
-              snippet={snippet}
-              currentUser={user}
-              isLiked={likedSnippetIds.has(snippet.id)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-outline-variant bg-surface-container/50">
-          <div className="w-16 h-16 bg-surface-container-high flex items-center justify-center mb-4">
-            <Code className="w-8 h-8 text-on-surface-variant" />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        {!snippets || snippets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-outline-variant bg-surface-container/50">
+            <div className="w-16 h-16 bg-surface-container-high flex items-center justify-center mb-4">
+              <Code className="w-8 h-8 text-on-surface-variant" />
+            </div>
+            <h3 className="text-xl font-bold text-on-surface mb-2">No snippets yet</h3>
+            <p className="text-on-surface-variant max-w-sm mb-6">
+              Be the first to share a piece of code with the community!
+            </p>
+            <Link href="/snippets/new" className="btn-primary px-6 py-3 uppercase tracking-wider">
+              Create Snippet
+            </Link>
           </div>
-          <h3 className="text-xl font-bold text-on-surface mb-2">No snippets yet</h3>
-          <p className="text-on-surface-variant max-w-sm mb-6">
-            Be the first to share a piece of code with the community!
-          </p>
-          <Link href="/snippets/new" className="btn-primary px-6 py-3 uppercase tracking-wider">
-            Create Snippet
-          </Link>
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {snippets.map((snippet: any) => (
+              <SnippetCardCompact
+                key={snippet.id}
+                snippet={snippet}
+                currentUser={user}
+                isLiked={likedSnippetIds.has(snippet.id)}
+              />
+            ))}
+          </div>
+        )}
+      </HydrationBoundary>
 
       {snippets && snippets.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-12">

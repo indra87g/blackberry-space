@@ -5,6 +5,8 @@ import { FileCode2, Calendar } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import type { SnippetWithProfile } from '@/lib/types';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
+import { getQueryClient } from '@/app/get-query-client';
 
 export const revalidate = 0;
 
@@ -18,24 +20,43 @@ export default async function ProfilePage() {
     redirect('/');
   }
 
-  // Fetch profile and snippets first concurrently
-  const [{ data: profile }, { data: tabData }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
-    supabase
-      .from('snippets')
-      .select(`
-          *,
-          profiles ( full_name, avatar_url, username )
-        `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false }),
+  const queryClient = getQueryClient();
+
+  // Fetch profile and snippets
+  await Promise.all([
+    queryClient.prefetchQuery({
+      queryKey: ['profile', user.id],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (error) throw error;
+        return data;
+      },
+    }),
+    queryClient.prefetchQuery({
+      queryKey: ['user-snippets', user.id],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('snippets')
+          .select(`
+              *,
+              profiles ( full_name, avatar_url, username )
+            `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+      },
+    }),
   ]);
 
-  const snippets: SnippetWithProfile[] = (tabData as SnippetWithProfile[]) || [];
+  const profile = queryClient.getQueryData(['profile', user.id]) as any;
+  const snippets =
+    (queryClient.getQueryData(['user-snippets', user.id]) as SnippetWithProfile[]) || [];
 
-  // ⚡ Bolt: Prevent O(N) over-fetching of likes
-  // Instead of fetching ALL user likes concurrently, we fetch snippets first
-  // and use an .in() filter to only fetch likes for the snippets actually shown on this page.
   const likedSnippetIds = new Set<string>();
   if (snippets.length > 0) {
     const snippetIds = snippets.map((s) => s.id);
@@ -101,28 +122,30 @@ export default async function ProfilePage() {
         </Link>
       </div>
 
-      {snippets.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {snippets.map((snippet) => (
-            <SnippetCardCompact
-              key={snippet.id}
-              snippet={snippet}
-              currentUser={user}
-              isLiked={likedSnippetIds.has(snippet.id)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-outline-variant bg-surface-container/30">
-          <div className="w-16 h-16 bg-surface-container-high flex items-center justify-center mb-4">
-            <FileCode2 className="w-8 h-8 text-on-surface-variant" />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        {snippets.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {snippets.map((snippet) => (
+              <SnippetCardCompact
+                key={snippet.id}
+                snippet={snippet}
+                currentUser={user}
+                isLiked={likedSnippetIds.has(snippet.id)}
+              />
+            ))}
           </div>
-          <h3 className="text-xl font-bold text-on-surface mb-2">No snippets yet</h3>
-          <p className="text-on-surface-variant max-w-sm">
-            You haven't shared any code snippets with the community yet.
-          </p>
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-outline-variant bg-surface-container/30">
+            <div className="w-16 h-16 bg-surface-container-high flex items-center justify-center mb-4">
+              <FileCode2 className="w-8 h-8 text-on-surface-variant" />
+            </div>
+            <h3 className="text-xl font-bold text-on-surface mb-2">No snippets yet</h3>
+            <p className="text-on-surface-variant max-w-sm">
+              You haven't shared any code snippets with the community yet.
+            </p>
+          </div>
+        )}
+      </HydrationBoundary>
     </div>
   );
 }
