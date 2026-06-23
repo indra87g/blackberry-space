@@ -7,6 +7,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import type { SnippetWithProfile } from '@/lib/types';
+import { block } from 'million/react';
+import { useMutation } from '@tanstack/react-query';
 
 interface SnippetCardProps {
   snippet: SnippetWithProfile;
@@ -14,12 +16,14 @@ interface SnippetCardProps {
   isLiked?: boolean;
 }
 
-export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCardProps) {
+const SnippetCardBlock = block(function SnippetCard({
+  snippet,
+  currentUser,
+  isLiked = false,
+}: SnippetCardProps) {
   const router = useRouter();
   const [localLiked, setLocalLiked] = useState(isLiked);
   const [localLikesCount, setLocalLikesCount] = useState(snippet.likes_count || 0);
-  const [isTogglingLike, setIsTogglingLike] = useState(false);
-  const [isForking, setIsForking] = useState(false);
   const [shared, setShared] = useState(false);
 
   const supabase = createClient();
@@ -31,11 +35,9 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
     setTimeout(() => setShared(false), 2000);
   };
 
-  const handleFork = async () => {
-    if (!currentUser || isForking) return;
-
-    setIsForking(true);
-    try {
+  const forkMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUser) return;
       const { data, error } = await supabase
         .from('snippets')
         .insert({
@@ -52,28 +54,31 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
         .single();
 
       if (error) throw error;
-
-      router.push(`/snippets/${data.id}/view`);
-      router.refresh();
-    } catch (err) {
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        router.push(`/snippets/${data.id}/view`);
+        router.refresh();
+      }
+    },
+    onError: (err) => {
       console.error('Failed to fork snippet:', err);
       alert('Failed to fork snippet. Please try again.');
-    } finally {
-      setIsForking(false);
-    }
+    },
+  });
+
+  const handleFork = () => {
+    if (!currentUser || forkMutation.isPending) return;
+    forkMutation.mutate();
   };
 
-  const handleLike = async () => {
-    if (!currentUser || isTogglingLike) return;
+  const toggleLikeMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUser) return;
 
-    const nextLiked = !localLiked;
-    const nextCount = localLikesCount + (nextLiked ? 1 : -1);
+      const nextLiked = !localLiked;
 
-    setIsTogglingLike(true);
-    setLocalLiked(nextLiked);
-    setLocalLikesCount(nextCount);
-
-    try {
       const { error } = nextLiked
         ? await supabase.from('likes').insert({ snippet_id: snippet.id, user_id: currentUser.id })
         : await supabase
@@ -83,13 +88,29 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
             .eq('user_id', currentUser.id);
 
       if (error) throw error;
-    } catch (err) {
-      setLocalLiked(!nextLiked);
-      setLocalLikesCount(localLikesCount);
+      return nextLiked;
+    },
+    onMutate: async () => {
+      const nextLiked = !localLiked;
+      const nextCount = localLikesCount + (nextLiked ? 1 : -1);
+
+      setLocalLiked(nextLiked);
+      setLocalLikesCount(nextCount);
+
+      return { prevLiked: localLiked, prevCount: localLikesCount };
+    },
+    onError: (err, _variables, context) => {
+      if (context) {
+        setLocalLiked(context.prevLiked);
+        setLocalLikesCount(context.prevCount);
+      }
       console.error('Failed to toggle like:', err);
-    } finally {
-      setIsTogglingLike(false);
-    }
+    },
+  });
+
+  const handleLike = () => {
+    if (!currentUser || toggleLikeMutation.isPending) return;
+    toggleLikeMutation.mutate();
   };
 
   const canFork = snippet.forkable && currentUser && currentUser.id !== snippet.user_id;
@@ -112,12 +133,12 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
               <button
                 type="button"
                 onClick={handleFork}
-                disabled={isForking}
+                disabled={forkMutation.isPending}
                 className="p-2 transition-all hover:bg-[rgba(255,255,255,0.05)] text-outline hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                 title="Fork snippet"
                 aria-label="Fork snippet"
               >
-                {isForking ? (
+                {forkMutation.isPending ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <GitFork className="w-5 h-5" aria-hidden="true" />
@@ -142,8 +163,8 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
             <button
               type="button"
               onClick={handleLike}
-              disabled={!currentUser || isTogglingLike}
-              className={`p-2 flex items-center gap-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[rgba(255,255,255,0.05)] active:scale-95'} ${isTogglingLike ? 'opacity-60 cursor-wait' : ''}`}
+              disabled={!currentUser || toggleLikeMutation.isPending}
+              className={`p-2 flex items-center gap-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[rgba(255,255,255,0.05)] active:scale-95'} ${toggleLikeMutation.isPending ? 'opacity-60 cursor-wait' : ''}`}
               title={
                 !currentUser ? 'Login to like' : localLiked ? 'Unlike snippet' : 'Like snippet'
               }
@@ -208,4 +229,6 @@ export function SnippetCard({ snippet, currentUser, isLiked = false }: SnippetCa
       </div>
     </div>
   );
-}
+});
+
+export const SnippetCard = SnippetCardBlock as any;

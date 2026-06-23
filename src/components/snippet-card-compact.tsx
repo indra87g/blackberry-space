@@ -7,6 +7,8 @@ import { createClient } from '@/utils/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import type { User } from '@supabase/supabase-js';
 import type { SnippetWithProfile } from '@/lib/types';
+import { block } from 'million/react';
+import { useMutation } from '@tanstack/react-query';
 
 interface SnippetCardProps {
   snippet: SnippetWithProfile;
@@ -14,27 +16,23 @@ interface SnippetCardProps {
   isLiked?: boolean;
 }
 
-export function SnippetCardCompact({ snippet, currentUser, isLiked = false }: SnippetCardProps) {
+const SnippetCardCompactBlock = block(function SnippetCardCompact({
+  snippet,
+  currentUser,
+  isLiked = false,
+}: SnippetCardProps) {
   const [localLiked, setLocalLiked] = useState(isLiked);
   const [localLikesCount, setLocalLikesCount] = useState(snippet.likes_count || 0);
-  const [isTogglingLike, setIsTogglingLike] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
 
-  const handleLike = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!currentUser || isTogglingLike) return;
+  const toggleLikeMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUser) return;
 
-    const nextLiked = !localLiked;
-    const nextCount = localLikesCount + (nextLiked ? 1 : -1);
+      const nextLiked = !localLiked;
 
-    setIsTogglingLike(true);
-    setLocalLiked(nextLiked);
-    setLocalLikesCount(nextCount);
-
-    try {
       const { error } = nextLiked
         ? await supabase.from('likes').insert({ snippet_id: snippet.id, user_id: currentUser.id })
         : await supabase
@@ -44,13 +42,32 @@ export function SnippetCardCompact({ snippet, currentUser, isLiked = false }: Sn
             .eq('user_id', currentUser.id);
 
       if (error) throw error;
-    } catch (err) {
-      setLocalLiked(!nextLiked);
-      setLocalLikesCount(localLikesCount);
+      return nextLiked;
+    },
+    onMutate: async () => {
+      // Optimistic update
+      const nextLiked = !localLiked;
+      const nextCount = localLikesCount + (nextLiked ? 1 : -1);
+
+      setLocalLiked(nextLiked);
+      setLocalLikesCount(nextCount);
+
+      return { prevLiked: localLiked, prevCount: localLikesCount };
+    },
+    onError: (err, _variables, context) => {
+      if (context) {
+        setLocalLiked(context.prevLiked);
+        setLocalLikesCount(context.prevCount);
+      }
       console.error('Failed to toggle like:', err);
-    } finally {
-      setIsTogglingLike(false);
-    }
+    },
+  });
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!currentUser || toggleLikeMutation.isPending) return;
+    toggleLikeMutation.mutate();
   };
 
   return (
@@ -78,8 +95,8 @@ export function SnippetCardCompact({ snippet, currentUser, isLiked = false }: Sn
           <button
             type="button"
             onClick={handleLike}
-            disabled={!currentUser || isTogglingLike}
-            className={`p-2 flex items-center gap-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0 ${!currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[rgba(255,255,255,0.05)] active:scale-95'} ${isTogglingLike ? 'opacity-60 cursor-wait' : ''}`}
+            disabled={!currentUser || toggleLikeMutation.isPending}
+            className={`p-2 flex items-center gap-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0 ${!currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[rgba(255,255,255,0.05)] active:scale-95'} ${toggleLikeMutation.isPending ? 'opacity-60 cursor-wait' : ''}`}
             title={!currentUser ? 'Login to like' : localLiked ? 'Unlike snippet' : 'Like snippet'}
             aria-label={localLiked ? 'Unlike snippet' : 'Like snippet'}
           >
@@ -148,4 +165,6 @@ export function SnippetCardCompact({ snippet, currentUser, isLiked = false }: Sn
       </div>
     </div>
   );
-}
+});
+
+export const SnippetCardCompact = SnippetCardCompactBlock as any;
