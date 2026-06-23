@@ -31,5 +31,7 @@ const nextConfig: NextConfig = {
   },
 };
 
+// Explicitly enable RSC optimization because Million.js auto-detection
+// fails when the 'app' directory is nested inside 'src/'.
 // @ts-expect-error - Million.js types might not be fully compatible with Next.js 16 yet
 export default million.next(nextConfig, { auto: { rsc: true } });
