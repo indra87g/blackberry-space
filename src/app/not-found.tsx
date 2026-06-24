@@ -13,7 +13,7 @@ export default function NotFound() {
       <p className="text-on-surface-variant text-lg mb-8 max-w-md">
         The page you are looking for doesn&apos;t exist or has been moved.
       </p>
-      <Link href="/" className="btn-primary px-6 py-3 uppercase tracking-wider">
+      <Link href="/snippets/discover" className="btn-primary px-6 py-3 uppercase tracking-wider">
         Return to Discover
       </Link>
     </div>

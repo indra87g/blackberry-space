@@ -16,19 +16,19 @@ export type Database = {
     Tables: {
       likes: {
         Row: {
-          user_id: string
+          created_at: string
           snippet_id: string
-          created_at: string | null
+          user_id: string
         }
         Insert: {
-          user_id: string
+          created_at?: string
           snippet_id: string
-          created_at?: string | null
+          user_id: string
         }
         Update: {
-          user_id?: string
+          created_at?: string
           snippet_id?: string
-          created_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -38,13 +38,6 @@ export type Database = {
             referencedRelation: "snippets"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "likes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
         ]
       }
       profiles: {
@@ -53,69 +46,72 @@ export type Database = {
           created_at: string | null
           full_name: string | null
           id: string
+          isAdmin: boolean | null
+          last_login_at: string | null
+          thorium: number | null
           username: string | null
-          thorium: number
-          isAdmin: boolean
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
           full_name?: string | null
           id: string
+          isAdmin?: boolean | null
+          last_login_at?: string | null
+          thorium?: number | null
           username?: string | null
-          thorium?: number
-          isAdmin?: boolean
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
+          isAdmin?: boolean | null
+          last_login_at?: string | null
+          thorium?: number | null
           username?: string | null
-          thorium?: number
-          isAdmin?: boolean
         }
         Relationships: []
       }
       snippets: {
         Row: {
           code: string
-          likes_count: number
           created_at: string | null
           credits: string | null
           description: string | null
+          forkable: boolean | null
           id: string
           language: string
+          likes_count: number
           tags: string[] | null
           title: string
           user_id: string | null
-          forkable: boolean
         }
         Insert: {
           code: string
-          likes_count?: number
           created_at?: string | null
           credits?: string | null
           description?: string | null
+          forkable?: boolean | null
           id?: string
           language: string
+          likes_count?: number
           tags?: string[] | null
           title: string
           user_id?: string | null
-          forkable?: boolean
         }
         Update: {
           code?: string
-          likes_count?: number
           created_at?: string | null
           credits?: string | null
           description?: string | null
+          forkable?: boolean | null
           id?: string
           language?: string
+          likes_count?: number
           tags?: string[] | null
           title?: string
           user_id?: string | null
-          forkable?: boolean
         }
         Relationships: [
           {

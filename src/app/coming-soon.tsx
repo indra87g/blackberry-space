@@ -13,7 +13,10 @@ export default function ComingSoon() {
       <p className="text-on-surface-variant text-lg mb-8 max-w-md font-medium leading-relaxed">
         We&apos;re working hard on this feature. Check back later to see what we&apos;ve built!
       </p>
-      <Link href="/" className="btn-primary px-8 py-3.5 uppercase tracking-wider font-bold text-sm">
+      <Link
+        href="/snippets/discover"
+        className="btn-primary px-8 py-3.5 uppercase tracking-wider font-bold text-sm"
+      >
         Return to Discover
       </Link>
     </div>

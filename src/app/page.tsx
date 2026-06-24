@@ -1,142 +1,225 @@
 import { createClient } from '@/utils/supabase/server';
 import { SnippetCardCompact } from '@/components/snippet-card-compact';
-import { Code } from 'lucide-react';
+import { Code, Zap, LogIn, TrendingUp, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { SearchBar } from '@/components/search-bar';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { getQueryClient } from '@/app/get-query-client';
 
-export const revalidate = 0; // Disable full page caching to always show latest snippets/auth state
+export const revalidate = 0;
 
-export default async function Home(props: {
-  searchParams: Promise<{ q?: string; page?: string }>;
-}) {
-  const searchParams = await props.searchParams;
-  const q = searchParams?.q || '';
-  const currentPage = Number(searchParams?.page) || 1;
-  const itemsPerPage = 10;
-  const from = (currentPage - 1) * itemsPerPage;
-  const to = from + itemsPerPage - 1;
-
+export default async function Dashboard() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const queryClient = getQueryClient();
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="w-20 h-20 bg-surface-container-high flex items-center justify-center mb-8 rotate-3 hover:rotate-0 transition-transform duration-300">
+          <Code className="w-10 h-10 text-primary" />
+        </div>
+        <h1 className="text-4xl font-black tracking-tighter text-on-surface mb-4 uppercase">
+          Blackberry Space
+        </h1>
+        <p className="text-on-surface-variant text-lg max-w-md mb-8 leading-relaxed">
+          A terminal-inspired platform to share, discover, and collect code snippets with your
+          fellow developers.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs sm:max-w-none justify-center">
+          <Link
+            href="/login"
+            className="btn-primary px-8 py-4 flex items-center justify-center gap-2 uppercase tracking-widest text-sm font-bold"
+          >
+            <LogIn className="w-4 h-4" />
+            Get Started
+          </Link>
+          <Link
+            href="/snippets/discover"
+            className="bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant px-8 py-4 flex items-center justify-center gap-2 uppercase tracking-widest text-sm font-bold transition-colors"
+          >
+            <TrendingUp className="w-4 h-4" />
+            Explore
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-  // Prefetch snippets
-  await queryClient.prefetchQuery({
-    queryKey: ['snippets', { q, page: currentPage }],
-    queryFn: async () => {
-      let query = supabase
-        .from('snippets')
-        .select(
-          `
-          *,
-          profiles ( full_name, avatar_url, username )
-        `,
-          { count: 'planned' },
-        )
-        .order('created_at', { ascending: false })
-        .range(from, to);
+  // Fetch Profile
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
-      if (q) {
-        const term = q.replace(/[,()]/g, ' ').trim();
-        if (term) {
-          query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
-        }
-      }
+  if (!profile) return null;
 
-      const { data: snippets, count, error } = await query;
-      if (error) throw error;
+  // Daily Login Logic
+  const now = new Date();
+  const lastLogin = profile.last_login_at ? new Date(profile.last_login_at) : null;
+  const isNewDay =
+    !lastLogin ||
+    now.getFullYear() !== lastLogin.getFullYear() ||
+    now.getMonth() !== lastLogin.getMonth() ||
+    now.getDate() !== lastLogin.getDate();
 
-      return { snippets, count };
-    },
-  });
+  let thoriumEarned = false;
+  if (isNewDay) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        thorium: (profile.thorium || 0) + 1,
+        last_login_at: now.toISOString(),
+      })
+      .eq('id', user.id);
 
-  const { snippets, count } = (queryClient.getQueryData([
-    'snippets',
-    { q, page: currentPage },
-  ]) as any) || { snippets: [], count: 0 };
-  const totalPages = count ? Math.ceil(count / itemsPerPage) : 0;
-
-  const likedSnippetIds = new Set<string>();
-  if (user && snippets && snippets.length > 0) {
-    const snippetIds = snippets.map((s: any) => s.id);
-    const { data: likes } = await supabase
-      .from('likes')
-      .select('snippet_id')
-      .eq('user_id', user.id)
-      .in('snippet_id', snippetIds);
-
-    if (likes) {
-      likes.forEach((l: any) => likedSnippetIds.add(l.snippet_id));
+    if (!error) {
+      thoriumEarned = true;
+      profile.thorium = (profile.thorium || 0) + 1;
     }
   }
 
-  return (
-    <div className="pb-12">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-on-surface mb-2">
-            Discover Snippets
-          </h1>
-          <p className="text-on-surface-variant text-lg">
-            Explore code shared by the Blackberry Space community.
-          </p>
-        </div>
-        <SearchBar />
-      </div>
+  // Get Greeting
+  const hour = now.getHours();
+  let greeting = 'Good morning';
+  if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+  else if (hour >= 17) greeting = 'Good evening';
 
-      <HydrationBoundary state={dehydrate(queryClient)}>
-        {!snippets || snippets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-outline-variant bg-surface-container/50">
-            <div className="w-16 h-16 bg-surface-container-high flex items-center justify-center mb-4">
-              <Code className="w-8 h-8 text-on-surface-variant" />
+  // Fetch Popular Snippets
+  const { data: popularSnippets } = await supabase
+    .from('snippets')
+    .select(`
+      *,
+      profiles ( full_name, avatar_url, username )
+    `)
+    .eq('user_id', user.id)
+    .order('likes_count', { ascending: false })
+    .limit(3);
+
+  return (
+    <div className="pb-12 space-y-10">
+      <section className="bg-surface-container border border-outline-variant p-8 md:p-10 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+          <Zap className="w-32 h-32 text-primary" />
+        </div>
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 text-primary mb-4">
+            <Clock className="w-5 h-5" />
+            <span className="text-xs font-black uppercase tracking-[0.2em]">
+              {now.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-on-surface mb-2 uppercase">
+            {greeting}, {profile.full_name?.split(' ')[0] || profile.username || 'Developer'}!
+          </h1>
+          <p className="text-on-surface-variant text-lg max-w-2xl mb-8 leading-relaxed">
+            Welcome back to your workspace.{' '}
+            {thoriumEarned
+              ? "You've claimed your daily thorium! +1 ⚡"
+              : 'Keep building and sharing your code with the world.'}
+          </p>
+
+          <div className="flex flex-wrap gap-4">
+            <div className="bg-background border border-outline-variant px-6 py-4 flex items-center gap-4">
+              <div className="w-12 h-12 bg-surface-container flex items-center justify-center">
+                <Zap className="w-6 h-6 text-primary fill-primary" />
+              </div>
+              <div>
+                <div className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-0.5">
+                  Balance
+                </div>
+                <div className="text-xl font-bold text-on-surface">{profile.thorium} Thorium</div>
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-on-surface mb-2">No snippets yet</h3>
-            <p className="text-on-surface-variant max-w-sm mb-6">
-              Be the first to share a piece of code with the community!
+
+            <div className="bg-background border border-outline-variant px-6 py-4 flex items-center gap-4">
+              <div className="w-12 h-12 bg-surface-container flex items-center justify-center">
+                <Code className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <div className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-0.5">
+                  Snippets
+                </div>
+                <div className="text-xl font-bold text-on-surface">Your Collection</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <TrendingUp className="w-6 h-6 text-primary" />
+            <h2 className="text-2xl font-bold tracking-tight text-on-surface uppercase tracking-widest">
+              Your Top Snippets
+            </h2>
+          </div>
+          <Link
+            href="/profile"
+            className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest"
+          >
+            View All
+          </Link>
+        </div>
+
+        {!popularSnippets || popularSnippets.length === 0 ? (
+          <div className="bg-surface-container/30 border border-dashed border-outline-variant p-12 text-center">
+            <p className="text-on-surface-variant mb-6 uppercase tracking-widest text-sm font-medium">
+              You haven't shared any snippets yet.
             </p>
-            <Link href="/snippets/new" className="btn-primary px-6 py-3 uppercase tracking-wider">
-              Create Snippet
+            <Link
+              href="/snippets/new"
+              className="btn-primary px-6 py-3 text-xs uppercase tracking-widest font-bold inline-block"
+            >
+              Create My First Snippet
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {snippets.map((snippet: any) => (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {popularSnippets.map((snippet: any) => (
               <SnippetCardCompact
                 key={snippet.id}
                 snippet={snippet}
                 currentUser={user}
-                isLiked={likedSnippetIds.has(snippet.id)}
+                isLiked={false} // Simplification for dashboard, or we could check likes
               />
             ))}
           </div>
         )}
-      </HydrationBoundary>
+      </section>
 
-      {snippets && snippets.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-12">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-surface-container-high p-8 border border-outline-variant">
+          <h3 className="text-xl font-black text-on-surface mb-2 uppercase tracking-tighter">
+            Ready to Build?
+          </h3>
+          <p className="text-on-surface-variant mb-6 text-sm">
+            Create a new snippet and share it with the community to earn recognition and thorium.
+          </p>
           <Link
-            href={`/?${new URLSearchParams({ ...(q ? { q } : {}), page: String(Math.max(1, currentPage - 1)) })}`}
-            className={`p-2 border border-outline-variant transition-colors ${currentPage === 1 ? 'opacity-50 pointer-events-none' : 'hover:bg-surface-container-high'}`}
+            href="/snippets/new"
+            className="text-primary hover:underline text-xs font-black uppercase tracking-[0.2em]"
           >
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <span className="text-on-surface-variant font-medium px-4">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Link
-            href={`/?${new URLSearchParams({ ...(q ? { q } : {}), page: String(Math.min(totalPages, currentPage + 1)) })}`}
-            className={`p-2 border border-outline-variant transition-colors ${currentPage >= totalPages ? 'opacity-50 pointer-events-none' : 'hover:bg-surface-container-high'}`}
-          >
-            <ChevronRight className="w-5 h-5" />
+            Create New Snippet &rarr;
           </Link>
         </div>
-      )}
+        <div className="bg-surface-container-high p-8 border border-outline-variant">
+          <h3 className="text-xl font-black text-on-surface mb-2 uppercase tracking-tighter">
+            Explore Discover
+          </h3>
+          <p className="text-on-surface-variant mb-6 text-sm">
+            See what other developers are building and get inspired for your next project.
+          </p>
+          <Link
+            href="/snippets/discover"
+            className="text-primary hover:underline text-xs font-black uppercase tracking-[0.2em]"
+          >
+            Browse Discover &rarr;
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

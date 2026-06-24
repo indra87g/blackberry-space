@@ -33,8 +33,6 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
   const supabase = createClient();
 
   useEffect(() => {
-    // Initial user is provided by the server (layout). Only subscribe to auth
-    // changes here so login/logout stay reactive without an extra getUser() call.
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
@@ -53,19 +51,15 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
     fetchProfile();
   }, [user, supabase]);
 
-  // Handle body scroll locking when mobile menu is open
   useEffect(() => {
     if (isOpen) {
       document.body.classList.add('overflow-hidden');
     } else {
       document.body.classList.remove('overflow-hidden');
     }
-
-    // Cleanup function
     return () => document.body.classList.remove('overflow-hidden');
   }, [isOpen]);
 
-  // Close mobile menu on desktop resize
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768 && isOpen) {
@@ -83,7 +77,7 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
   };
 
   const menus = [
-    { name: 'Home', href: 'https://blackberryhazard.pages.dev', icon: Home, external: true },
+    { name: 'Home', href: '/', icon: Home },
     { name: 'Challenges', href: '/coming-soon', icon: Swords },
   ];
 
@@ -98,39 +92,42 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
           <div className="w-8 h-8 bg-primary flex items-center justify-center group-hover:brightness-110 transition-all">
             <CodeSquare className="w-4 h-4 text-on-primary" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-on-surface group-hover:text-primary transition-colors uppercase tracking-[0.05em]">
-            Blackberry
+          <span className="font-black text-xl tracking-tighter text-on-surface uppercase group-hover:text-primary transition-colors">
+            Blackberry<span className="text-primary group-hover:text-on-surface">Space</span>
           </span>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8 font-bold text-sm uppercase tracking-wider">
+        <nav className="hidden md:flex items-center gap-2">
+          {/* Snippets Dropdown-like Section */}
+          <div className="relative group/menu">
+            <Link
+              href="/snippets/discover"
+              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+                pathname.startsWith('/snippets')
+                  ? 'text-primary bg-surface-container border border-primary'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <FileCode2 className="w-4 h-4" />
+              Snippets
+            </Link>
+          </div>
+
           {menus.map((item) => {
             const isActive =
-              !item.external &&
-              ((item.name === 'Discover' && pathname === '/') ||
-                (item.name !== 'Discover' && pathname === item.href));
+              (item.name === 'Home' && pathname === '/') ||
+              (item.name !== 'Home' && pathname === item.href);
 
-            const linkClasses = `transition-colors flex items-center gap-2 ${
-              isActive ? 'text-primary' : 'text-on-surface hover:text-primary'
-            }`;
-
-            if (item.external) {
-              return (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={linkClasses}
-                >
-                  <item.icon className="w-4 h-4" />
-                  {item.name}
-                </a>
-              );
-            }
             return (
-              <Link key={item.name} href={item.href} className={linkClasses}>
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+                  isActive
+                    ? 'text-primary bg-surface-container border border-primary'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
                 <item.icon className="w-4 h-4" />
                 {item.name}
               </Link>
@@ -244,9 +241,9 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
             {isSnippetsOpen && (
               <div className="flex flex-col animate-in slide-in-from-top-2 fade-in duration-200">
                 <Link
-                  href="/"
+                  href="/snippets/discover"
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-3 pl-8 transition-colors text-sm uppercase tracking-wider font-bold ${pathname === '/' ? 'bg-surface-container-high text-primary border border-primary' : 'text-on-surface active:bg-surface-container hover:text-primary'}`}
+                  className={`flex items-center gap-3 px-3 py-3 pl-8 transition-colors text-sm uppercase tracking-wider font-bold ${pathname === '/snippets/discover' ? 'bg-surface-container-high text-primary border border-primary' : 'text-on-surface active:bg-surface-container hover:text-primary'}`}
                 >
                   <Compass className="w-5 h-5" />
                   Discover
@@ -265,31 +262,14 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
 
           {menus.map((item) => {
             const isActive =
-              !item.external &&
-              ((item.name === 'Discover' && pathname === '/') ||
-                (item.name !== 'Discover' && pathname === item.href));
+              (item.name === 'Home' && pathname === '/') ||
+              (item.name !== 'Home' && pathname === item.href);
 
             const linkClasses = `flex items-center gap-3 px-3 py-3 transition-colors text-sm uppercase tracking-wider font-bold ${
               isActive
                 ? 'bg-surface-container-high text-primary border border-primary'
                 : 'text-on-surface active:bg-surface-container hover:text-primary'
             }`;
-
-            if (item.external) {
-              return (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={linkClasses}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.name}
-                </a>
-              );
-            }
 
             return (
               <Link

@@ -19,7 +19,10 @@ export default function ComingSoonPage() {
         and will be available soon.
       </p>
 
-      <Link href="/" className="btn-primary px-8 py-3 text-sm uppercase tracking-wider">
+      <Link
+        href="/snippets/discover"
+        className="btn-primary px-8 py-3 text-sm uppercase tracking-wider"
+      >
         Go Back Home
       </Link>
     </div>

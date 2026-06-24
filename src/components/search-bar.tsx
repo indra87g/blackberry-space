@@ -14,9 +14,9 @@ export function SearchBar() {
     const delayDebounceFn = setTimeout(() => {
       startTransition(() => {
         if (query) {
-          router.replace(`/?q=${encodeURIComponent(query)}`);
+          router.replace(`/snippets/discover?q=${encodeURIComponent(query)}`);
         } else {
-          router.replace(`/`);
+          router.replace(`/snippets/discover`);
         }
       });
     }, 300);
