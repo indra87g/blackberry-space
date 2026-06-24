@@ -13,7 +13,8 @@ create table if not exists public.profiles (
   avatar_url  text,
   updated_at  timestamptz not null default now(),
   thorium     integer not null default 0,
-  "isAdmin"   boolean not null default false
+  "isAdmin"   boolean not null default false,
+  last_login_at timestamptz
 );
 
 -- ---------------------------------------------------------------------------

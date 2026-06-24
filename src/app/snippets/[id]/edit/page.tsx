@@ -270,7 +270,7 @@ export default function EditSnippetPage({ params }: { params: Promise<{ id: stri
               type="checkbox"
               name="forkable"
               id="forkable"
-              defaultChecked={snippet.forkable}
+              defaultChecked={snippet.forkable ?? true}
               className="w-5 h-5 accent-primary bg-surface-container border-outline rounded focus:ring-primary focus:ring-offset-background"
             />
             <label

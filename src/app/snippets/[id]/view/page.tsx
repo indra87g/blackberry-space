@@ -63,7 +63,7 @@ export default async function SnippetViewPage(props: { params: Promise<{ id: str
     <div className="pb-12 max-w-4xl mx-auto">
       <div className="mb-6">
         <Link
-          href="/"
+          href="/snippets/discover"
           className="inline-flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
