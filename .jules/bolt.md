@@ -17,3 +17,7 @@
 ## Anti-patterns Avoided
 - Avoided creating new `QueryClient` instances in render cycles by using the `getQueryClient` singleton pattern.
 - Prioritized stable React features over experimental streamed hydration to ensure reliable auth flows and page loads.
+
+## 2024-05-19 - Explicit Route Prefetching for Non-Link Navigations
+**Learning:** In Next.js App Router, navigation using `router.push` inside interactive elements (like `div`s acting as cards) completely bypasses the framework's automatic link prefetching behavior provided by the `<Link>` component. This leads to waterfalling on click and severely degraded perceived navigation performance, especially on high-latency networks.
+**Action:** Whenever a non-standard interactive element (e.g., `div` or `button`) is used for primary navigation via `router.push` (often necessary when the element contains other nested interactive elements like buttons, preventing the use of a wrapping `<a>` tag), explicitly attach `onMouseEnter={() => router.prefetch('/path')}` and `onFocus` handlers to manually trigger Next.js's prefetch mechanism and restore instantaneous navigation behavior.
