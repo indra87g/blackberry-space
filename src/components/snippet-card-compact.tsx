@@ -67,6 +67,8 @@ export function SnippetCardCompact({ snippet, currentUser, isLiked = false }: Sn
   return (
     <div
       onClick={() => router.push(`/snippets/${snippet.id}/view`)}
+      onMouseEnter={() => router.prefetch(`/snippets/${snippet.id}/view`)}
+      onFocus={() => router.prefetch(`/snippets/${snippet.id}/view`)}
       className="card-container overflow-hidden flex flex-col group transition-all cursor-pointer h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       tabIndex={0}
       onKeyDown={(e) => {
