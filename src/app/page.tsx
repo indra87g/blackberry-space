@@ -44,8 +44,22 @@ export default async function Dashboard() {
     );
   }
 
-  // Fetch Profile
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  // Fetch Profile and Popular Snippets concurrently
+  const [profileResponse, popularSnippetsResponse] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase
+      .from('snippets')
+      .select(`
+        *,
+        profiles ( full_name, avatar_url, username )
+      `)
+      .eq('user_id', user.id)
+      .order('likes_count', { ascending: false })
+      .limit(3),
+  ]);
+
+  const { data: profile } = profileResponse;
+  const { data: popularSnippets } = popularSnippetsResponse;
 
   if (!profile) return null;
 
@@ -79,17 +93,6 @@ export default async function Dashboard() {
   let greeting = 'Good morning';
   if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
   else if (hour >= 17) greeting = 'Good evening';
-
-  // Fetch Popular Snippets
-  const { data: popularSnippets } = await supabase
-    .from('snippets')
-    .select(`
-      *,
-      profiles ( full_name, avatar_url, username )
-    `)
-    .eq('user_id', user.id)
-    .order('likes_count', { ascending: false })
-    .limit(3);
 
   return (
     <div className="pb-12 space-y-10">
