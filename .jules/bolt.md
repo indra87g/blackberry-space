@@ -25,3 +25,7 @@
 ## 2024-07-04 - Parallelizing Independent Server Queries
 **Learning:** In Next.js Server Components, fetching independent data sequentially creates a network waterfall which blocks rendering and negatively impacts TTFB.
 **Action:** Identify independent data requirements in Server Components and use Promise.all to fetch them concurrently.
+
+## 2024-10-24 - Parallelizing Independent Server Queries in View and Discover Pages
+**Learning:** In Next.js Server Components, independent data fetching operations like `supabase.auth.getUser()` and `queryClient.prefetchQuery()` were being executed sequentially in \`src/app/snippets/[id]/view/page.tsx\` and \`src/app/snippets/discover/page.tsx\`. This creates a network waterfall which blocks rendering and negatively impacts TTFB. This reinforces the learning from 2024-07-04.
+**Action:** Identified the independent data requirements in these Server Components and used \`Promise.all\` to fetch them concurrently, ensuring the fallbacks (e.g., when the user is null) are handled correctly.

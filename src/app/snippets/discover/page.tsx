@@ -20,42 +20,42 @@ export default async function DiscoverSnippets(props: {
   const to = from + itemsPerPage - 1;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const queryClient = getQueryClient();
 
   // Prefetch snippets
-  await queryClient.prefetchQuery({
-    queryKey: ['snippets', { q, page: currentPage }],
-    queryFn: async () => {
-      let query = supabase
-        .from('snippets')
-        .select(
-          `
+  const [authResponse] = await Promise.all([
+    supabase.auth.getUser(),
+    queryClient.prefetchQuery({
+      queryKey: ['snippets', { q, page: currentPage }],
+      queryFn: async () => {
+        let query = supabase
+          .from('snippets')
+          .select(
+            `
           *,
           profiles ( full_name, avatar_url, username )
         `,
-          { count: 'planned' },
-        )
-        .order('created_at', { ascending: false })
-        .range(from, to);
+            { count: 'planned' },
+          )
+          .order('created_at', { ascending: false })
+          .range(from, to);
 
-      if (q) {
-        const term = q.replace(/[,()]/g, ' ').trim();
-        if (term) {
-          query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+        if (q) {
+          const term = q.replace(/[,()]/g, ' ').trim();
+          if (term) {
+            query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+          }
         }
-      }
 
-      const { data: snippets, count, error } = await query;
-      if (error) throw error;
+        const { data: snippets, count, error } = await query;
+        if (error) throw error;
 
-      return { snippets, count };
-    },
-  });
+        return { snippets, count };
+      },
+    }),
+  ]);
 
+  const user = authResponse.data.user;
   const { snippets, count } = (queryClient.getQueryData([
     'snippets',
     { q, page: currentPage },

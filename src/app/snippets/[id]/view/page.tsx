@@ -16,48 +16,48 @@ export default async function SnippetViewPage(props: { params: Promise<{ id: str
   const id = params.id;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const queryClient = getQueryClient();
 
-  await queryClient.prefetchQuery({
-    queryKey: ['snippet', id],
-    queryFn: async () => {
-      const { data: snippet, error } = await supabase
-        .from('snippets')
-        .select(`
+  const [authResponse] = await Promise.all([
+    supabase.auth.getUser(),
+    queryClient.prefetchQuery({
+      queryKey: ['snippet', id],
+      queryFn: async () => {
+        const { data: snippet, error } = await supabase
+          .from('snippets')
+          .select(`
           *,
           profiles ( full_name, avatar_url, username )
         `)
-        .eq('id', id)
-        .single();
+          .eq('id', id)
+          .single();
 
-      if (error || !snippet) return null;
-      return snippet;
-    },
-  });
+        if (error || !snippet) return null;
+        return snippet;
+      },
+    }),
+  ]);
 
+  const user = authResponse.data.user;
   const snippet = queryClient.getQueryData(['snippet', id]) as any;
 
   if (!snippet) {
     notFound();
   }
 
-  let isLiked = false;
-  if (user) {
-    const { data: like } = await supabase
-      .from('likes')
-      .select('snippet_id')
-      .eq('user_id', user.id)
-      .eq('snippet_id', snippet.id)
-      .maybeSingle();
+  const [likeResponse, codeHtml] = await Promise.all([
+    user
+      ? supabase
+          .from('likes')
+          .select('snippet_id')
+          .eq('user_id', user.id)
+          .eq('snippet_id', snippet.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    highlightToHtml(snippet.code, snippet.language),
+  ]);
 
-    if (like) isLiked = true;
-  }
-
-  const codeHtml = await highlightToHtml(snippet.code, snippet.language);
+  const isLiked = !!likeResponse?.data;
 
   return (
     <div className="pb-12 max-w-4xl mx-auto">
