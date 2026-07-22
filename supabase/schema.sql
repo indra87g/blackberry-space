@@ -175,3 +175,24 @@ $$;
 create trigger on_likes_change
     after insert or delete on public.likes
     for each row execute function public.sync_likes_count();
+
+-- Prevent authenticated clients from elevating their own privileges
+create or replace function public.prevent_is_admin_update()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+    -- If the role is authenticated or anon (from Supabase client),
+    -- force new."isAdmin" to equal old."isAdmin".
+    if current_setting('role', true) in ('authenticated', 'anon') then
+        new."isAdmin" = old."isAdmin";
+    end if;
+    return new;
+end;
+$$;
+
+create trigger on_profile_update
+    before update on public.profiles
+    for each row execute function public.prevent_is_admin_update();
