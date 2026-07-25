@@ -3,3 +3,7 @@
 **Vulnerability:** The application was missing basic security headers like `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Strict-Transport-Security`.
 **Learning:** These headers provide important defense-in-depth protections against Clickjacking, MIME-type sniffing, and enforce HTTPS connections, reducing the attack surface.
 **Prevention:** Ensured security headers are globally enforced via the `async headers()` configuration in `next.config.ts`.
+## 2026-07-01 - [Server-Side Authorization Enforcement]
+**Vulnerability:** The `/admin` dashboard was relying on a client-side `useEffect` hook for authorization. This allowed the full UI payload to be sent to unauthorized clients before being redirected, leading to potential information disclosure and authorization bypass.
+**Learning:** Client-side routing and authorization checks in Next.js App Router are insufficient for protecting sensitive routes because the server still sends the component's UI payload to the client.
+**Prevention:** Always enforce authorization at the server level using Server Components (like `layout.tsx` or `page.tsx`) with `@/utils/supabase/server` and `redirect()` before rendering sensitive content.
