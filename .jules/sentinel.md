@@ -7,3 +7,7 @@
 **Vulnerability:** The `/admin` dashboard was relying on a client-side `useEffect` hook for authorization. This allowed the full UI payload to be sent to unauthorized clients before being redirected, leading to potential information disclosure and authorization bypass.
 **Learning:** Client-side routing and authorization checks in Next.js App Router are insufficient for protecting sensitive routes because the server still sends the component's UI payload to the client.
 **Prevention:** Always enforce authorization at the server level using Server Components (like `layout.tsx` or `page.tsx`) with `@/utils/supabase/server` and `redirect()` before rendering sensitive content.
+## 2026-08-01 - [Column-Level Security via Triggers]
+**Vulnerability:** Supabase RLS `UPDATE` policies apply to the entire row by default, meaning users could potentially modify sensitive columns like `isAdmin` or `thorium` in the `profiles` table by modifying the payload in client-side mutations.
+**Learning:** When using Postgres RLS, you must consider column-level security. A common pitfall is allowing a user to update their own row without restricting *which* columns they can update.
+**Prevention:** Use a `BEFORE UPDATE` database trigger to enforce strict column-level constraints by resetting sensitive fields (`new."isAdmin" = old."isAdmin"`) to ignore client-side tampering attempts. Note: Always verify the `auth.role()` to allow internal system processes or `service_role` clients to update these fields when appropriate.

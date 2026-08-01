@@ -155,6 +155,28 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Prevent users from escalating privileges by updating their own profile
+create or replace function public.protect_profile_columns()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  -- Only restrict updates originating from authenticated user sessions (API clients)
+  if auth.role() = 'authenticated' then
+    -- Prevent changing isAdmin
+    new."isAdmin" = old."isAdmin";
+    -- Prevent arbitrary thorium modification from the client
+    new.thorium = old.thorium;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger protect_profile_columns_trigger
+  before update on public.profiles
+  for each row execute function public.protect_profile_columns();
+
 -- Sync likes_count on snippets table.
 create or replace function public.sync_likes_count()
  returns trigger
