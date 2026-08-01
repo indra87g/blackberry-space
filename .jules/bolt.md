@@ -33,3 +33,7 @@
 ## 2024-10-25 - [Memoizing Expensive Synchronous Operations in Client Components]
 **Learning:** Operations like `DOMPurify.sanitize(html)` are synchronous and CPU-bound. Placing them directly inside the render method of a React Client Component with frequent state changes (e.g., toggling a 'copied' state) causes the expensive operation to block the main thread unnecessarily on every render.
 **Action:** Use `useMemo` to memoize the result of expensive synchronous computations, ensuring they only re-run when their specific dependencies (like the input `html` string) change, rather than on every component state update.
+
+## 2026-08-01 - Server-Side Profile Fetching for Navbar
+**Learning:** In Next.js, relying solely on Client Components (like a Navbar) to fetch initial user profile data creates a network waterfall. The server renders the layout, sends it to the client, the client executes JS, and only then does the Navbar initiate a fetch for the profile. This delays the display of critical UI elements (like a Thorium balance) and can cause layout shifts.
+**Action:** Fetch the profile data concurrently with the user session on the server inside `layout.tsx`. Pass this data down as an `initialProfile` prop to the Client Component, using it to initialize state and avoiding the redundant client-side fetch.

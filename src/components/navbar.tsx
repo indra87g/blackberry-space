@@ -23,13 +23,19 @@ import { createClient } from '@/utils/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import type { Profile } from '@/lib/types';
 
-export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
+export function Navbar({
+  initialUser = null,
+  initialProfile = null,
+}: {
+  initialUser?: User | null;
+  initialProfile?: Profile | null;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSnippetsOpen, setIsSnippetsOpen] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(initialUser);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(initialProfile);
   const supabase = createClient();
 
   useEffect(() => {
@@ -40,8 +46,17 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
   }, [supabase.auth]);
 
   useEffect(() => {
+    // ⚡ Bolt Optimization: Removed the initial client-side profile fetch if user matches initialUser,
+    // as it's already fetched on the server in layout.tsx. This prevents a network waterfall.
+    // We only fetch it again if the user state changes on the client (e.g., login/logout).
     async function fetchProfile() {
       if (user) {
+        // Skip fetching if the user is the same as the initial user
+        if (user.id === initialUser?.id && initialProfile) {
+          // If the profile hasn't been set yet, set it from initialProfile
+          setProfile(initialProfile);
+          return;
+        }
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         setProfile(data);
       } else {
@@ -49,7 +64,7 @@ export function Navbar({ initialUser = null }: { initialUser?: User | null }) {
       }
     }
     fetchProfile();
-  }, [user, supabase]);
+  }, [user, supabase, initialUser?.id, initialProfile]);
 
   useEffect(() => {
     if (isOpen) {
