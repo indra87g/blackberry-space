@@ -74,6 +74,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     data: { user },
   } = await supabase.auth.getUser();
 
+  // ⚡ Bolt Optimization: Fetch the profile on the server during the initial layout render
+  // instead of waiting for the Navbar (Client Component) to mount and fetch it.
+  // This eliminates a client-side network waterfall, preventing layout shifts
+  // and ensuring the profile data (e.g., Thorium balance) is available immediately.
+  let profile = null;
+  if (user) {
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    profile = data;
+  }
+
   return (
     <html lang="en" className={`${outfit.variable} ${jetbrainsMono.variable} dark`}>
       <body
@@ -88,7 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
 
         <Providers>
-          <Navbar initialUser={user} />
+          <Navbar initialUser={user} initialProfile={profile} />
           <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">{children}</main>
         </Providers>
       </body>
