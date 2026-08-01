@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Copy, Check, Download, Loader2 } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -58,6 +58,14 @@ export function CodeBlock({ code, language, html }: CodeBlockProps) {
     }
   };
 
+  // ⚡ Bolt Optimization: Memoize the expensive DOMPurify sanitization.
+  // This prevents the sanitization from re-running on every state change
+  // (e.g., when the 'copied' or 'isExporting' state toggles), saving CPU cycles
+  // and preventing unnecessary rendering delays.
+  const sanitizedHtml = useMemo(() => {
+    return DOMPurify.sanitize(html);
+  }, [html]);
+
   return (
     <div
       ref={blockRef}
@@ -107,7 +115,7 @@ export function CodeBlock({ code, language, html }: CodeBlockProps) {
       </div>
       <div className="p-4 overflow-auto custom-scrollbar font-mono text-sm leading-relaxed max-h-[600px] bg-surface-container-lowest">
         <div
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           className="
             [&>pre]:!bg-transparent [&>pre]:!p-0 [&>pre]:!m-0 [&>pre]:!text-[0.875rem]
             [&>pre>code]:[counter-reset:line]
