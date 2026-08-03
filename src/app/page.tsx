@@ -65,27 +65,14 @@ export default async function Dashboard() {
 
   // Daily Login Logic
   const now = new Date();
-  const lastLogin = profile.last_login_at ? new Date(profile.last_login_at) : null;
-  const isNewDay =
-    !lastLogin ||
-    now.getFullYear() !== lastLogin.getFullYear() ||
-    now.getMonth() !== lastLogin.getMonth() ||
-    now.getDate() !== lastLogin.getDate();
-
   let thoriumEarned = false;
-  if (isNewDay) {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        thorium: (profile.thorium || 0) + 1,
-        last_login_at: now.toISOString(),
-      })
-      .eq('id', user.id);
 
-    if (!error) {
-      thoriumEarned = true;
-      profile.thorium = (profile.thorium || 0) + 1;
-    }
+  // Call the secure RPC to claim daily reward. It returns true if successful.
+  const { data: claimed, error } = await supabase.rpc('claim_daily_reward');
+
+  if (!error && claimed) {
+    thoriumEarned = true;
+    profile.thorium = (profile.thorium || 0) + 1;
   }
 
   // Get Greeting
