@@ -163,7 +163,9 @@ security definer set search_path = public
 as $$
 begin
   -- Only restrict updates originating from authenticated user sessions (API clients)
-  if auth.role() = 'authenticated' then
+  -- The check `current_user != 'postgres'` ensures that SECURITY DEFINER RPCs
+  -- (which run as postgres) are allowed to modify these columns.
+  if auth.role() = 'authenticated' and current_user != 'postgres' then
     -- Prevent changing isAdmin
     new."isAdmin" = old."isAdmin";
     -- Prevent arbitrary thorium modification from the client
@@ -176,6 +178,32 @@ $$;
 create trigger protect_profile_columns_trigger
   before update on public.profiles
   for each row execute function public.protect_profile_columns();
+
+-- Claim Daily Reward RPC
+create or replace function public.claim_daily_reward()
+returns boolean
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_last_login timestamptz;
+  v_now date;
+  v_last_date date;
+begin
+  select last_login_at into v_last_login from public.profiles where id = auth.uid();
+
+  v_now := current_date;
+  v_last_date := date(v_last_login at time zone 'utc');
+
+  if v_last_login is null or v_now > v_last_date then
+    update public.profiles
+    set thorium = coalesce(thorium, 0) + 1, last_login_at = now()
+    where id = auth.uid();
+    return true;
+  end if;
+  return false;
+end;
+$$;
 
 -- Sync likes_count on snippets table.
 create or replace function public.sync_likes_count()
